@@ -12,8 +12,8 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model = ActorCriticMLP(num_inputs=4, num_actions=2, actor_hidden_sizes=1024, critic_hidden_sizes=1024)
 
 # CRL Benchmark Creation
-scenario = gym_benchmark_generator(['CartPole-v1'], n_experiences=1, n_parallel_envs=1, 
-    eval_envs=['CartPole-v1'])
+scenario = gym_benchmark_generator(['CartPole-v1', 'MountainCar-v0'], n_experiences=1, n_parallel_envs=1, 
+    eval_envs=['CartPole-v1', 'MountainCar-v0'])
 
 # Prepare for training & testing
 optimizer = Adam(model.parameters(), lr=1e-4)
