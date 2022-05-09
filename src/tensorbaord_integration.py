@@ -1,0 +1,86 @@
+from typing import List
+from avalanche.evaluation.metric_results import MetricValue
+from avalanche.evaluation.metric_utils import stream_type
+from avalanche.logging.tensorboard_logger import TensorboardLogger
+from tqdm import tqdm
+from avalanche.training import BaseStrategy
+
+from avalanche_rl.logging.strategy_logger import RLStrategyLogger
+
+from pathlib import Path
+from typing import Union
+
+from PIL.Image import Image
+from torch import Tensor
+from torch.utils.tensorboard import SummaryWriter
+from matplotlib.pyplot import Figure
+from torchvision.transforms.functional import to_tensor
+from avalanche.evaluation.metric_results import AlternativeValues, \
+    MetricValue, TensorImage
+from avalanche.logging import StrategyLogger
+
+
+class RLTensorboardLogger(TensorboardLogger, RLStrategyLogger):
+    """
+    The `TensorboardLogger` provides an easy integration with
+    Tensorboard logging. Each monitored metric is automatically
+    logged to Tensorboard.
+    The user can inspect results in real time by appropriately launching
+    tensorboard with `tensorboard --logdir=/path/to/tb_log_exp_name`.
+
+    If no parameters are provided, the default folder in which tensorboard
+    log files are placed is "./runs/".
+    .. note::
+        We rely on PyTorch implementation of Tensorboard. If you
+        don't have Tensorflow installed in your environment,
+        tensorboard will tell you that it is running with reduced
+        feature set. This should not impact on the logger performance.
+    """
+    
+    def __init__(self, tb_log_dir: Union[str, Path] = "./tb_data",
+                 filename_suffix: str = ''):
+        """
+        Creates an instance of the `TensorboardLogger`.
+
+        :param tb_log_dir: path to the directory where tensorboard log file
+            will be stored. Default to "./tb_data".
+        :param filename_suffix: string suffix to append at the end of
+            tensorboard log file. Default ''.
+        """
+
+        super().__init__(tb_log_dir=tb_log_dir, filename_suffix=filename_suffix)
+
+    def __del__(self):
+        self.writer.close()
+
+    def log_single_metric(self, name, value, x_plot):
+        if isinstance(value, AlternativeValues):
+            value = value.best_supported_value(Image, Tensor, TensorImage,
+                                               Figure, float, int)
+
+        if isinstance(value, Figure):
+            self.writer.add_figure(name, value,
+                                   global_step=x_plot)
+
+        elif isinstance(value, Image):
+            self.writer.add_image(name, to_tensor(value),
+                                  global_step=x_plot)
+
+        elif isinstance(value, Tensor):
+            self.writer.add_histogram(name, value,
+                                      global_step=x_plot)
+
+        elif isinstance(value, (float, int)):
+            self.writer.add_scalar(name, value,
+                                   global_step=x_plot)
+
+        elif isinstance(value, TensorImage):
+            self.writer.add_image(name, value.image,
+                                  global_step=x_plot)
+
+
+def _make_path_if_local(tb_log_dir: Union[str, Path]) -> Union[str, Path]:
+
+    tb_log_dir = Path(tb_log_dir)
+    tb_log_dir.mkdir(parents=True, exist_ok=True)
+    return tb_log_dir
